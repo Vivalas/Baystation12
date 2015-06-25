@@ -33,7 +33,7 @@ var/list/global_huds = list(
 	screen.screen_loc = "1,1"
 	screen.icon = 'icons/obj/hud_full.dmi'
 	screen.icon_state = icon_state
-	screen.layer = 17
+	screen.layer = SCREEN_LAYER
 	screen.mouse_opacity = 0
 
 	return screen
@@ -133,7 +133,8 @@ var/list/global_huds = list(
 	var/list/other
 	var/list/obj/screen/hotkeybuttons
 
-	var/list/obj/screen/item_action/item_action_list = list()	//Used for the item action ui buttons.
+	var/obj/screen/movable/action_button/hide_toggle/hide_actions_toggle
+	var/action_buttons_hidden = 0
 
 datum/hud/New(mob/owner)
 	mymob = owner
@@ -235,7 +236,7 @@ datum/hud/New(mob/owner)
 
 	if(ishuman(mymob))
 		human_hud(ui_style, ui_color, ui_alpha, mymob) // Pass the player the UI style chosen in preferences
-	else if(ismonkey(mymob))
+	else if(issmall(mymob))
 		monkey_hud(ui_style)
 	else if(isbrain(mymob))
 		brain_hud(ui_style)
@@ -249,7 +250,11 @@ datum/hud/New(mob/owner)
 		robot_hud()
 	else if(isobserver(mymob))
 		ghost_hud()
+	else
+		mymob.instantiate_hud(src)
 
+/mob/proc/instantiate_hud(var/datum/hud/HUD)
+	return
 
 //Triggered when F12 is pressed (Unless someone changed something in the DMF)
 /mob/verb/button_pressed_F12(var/full = 0 as null)
@@ -257,11 +262,11 @@ datum/hud/New(mob/owner)
 	set hidden = 1
 
 	if(!hud_used)
-		usr << "\red This mob type does not use a HUD."
+		usr << "<span class='warning'>This mob type does not use a HUD.</span>"
 		return
 
 	if(!ishuman(src))
-		usr << "\red Inventory hiding is currently only supported for human mobs, sorry."
+		usr << "<span class='warning'>Inventory hiding is currently only supported for human mobs, sorry.</span>"
 		return
 
 	if(!client) return
@@ -275,8 +280,6 @@ datum/hud/New(mob/owner)
 			src.client.screen -= src.hud_used.other
 		if(src.hud_used.hotkeybuttons)
 			src.client.screen -= src.hud_used.hotkeybuttons
-		if(src.hud_used.item_action_list)
-			src.client.screen -= src.hud_used.item_action_list
 
 		//Due to some poor coding some things need special treatment:
 		//These ones are a part of 'adding', 'other' or 'hotkeybuttons' but we want them to stay
@@ -334,8 +337,6 @@ datum/hud/New(mob/owner)
 			src.client.screen -= src.hud_used.other
 		if(src.hud_used.hotkeybuttons)
 			src.client.screen -= src.hud_used.hotkeybuttons
-		if(src.hud_used.item_action_list)
-			src.client.screen -= src.hud_used.item_action_list
 		src.client.screen -= src.internals
 		src.client.screen += src.hud_used.action_intent		//we want the intent swticher visible
 	else

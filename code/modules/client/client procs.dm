@@ -33,7 +33,7 @@
 	if( findtext(href,"<script",1,0) )
 		world.log << "Attempted use of scripts within a topic call, by [src]"
 		message_admins("Attempted use of scripts within a topic call, by [src]")
-		//del(usr)
+		//qdel(usr)
 		return
 
 	//Admin PM
@@ -112,7 +112,7 @@
 
 	if(!config.guests_allowed && IsGuestKey(key))
 		alert(src,"This server doesn't allow guest accounts to play. Please go to http://www.byond.com/ and register for a key.","Guest","OK")
-		del(src)
+		qdel(src)
 		return
 
 	// Change the way they should download resources.
@@ -145,12 +145,9 @@
 	if(custom_event_msg && custom_event_msg != "")
 		src << "<h1 class='alert'>Custom Event</h1>"
 		src << "<h2 class='alert'>A custom event is taking place. OOC Info:</h2>"
-		src << "<span class='alert'>[html_encode(custom_event_msg)]</span>"
+		src << "<span class='alert'>[custom_event_msg]</span>"
 		src << "<br>"
 
-	if( (world.address == address || !address) && !host )
-		host = key
-		world.update_status()
 
 	if(holder)
 		add_admin_verbs()
@@ -162,7 +159,11 @@
 	nanomanager.send_resources(src)
 
 	if(prefs.lastchangelog != changelog_hash) //bolds the changelog button on the interface so we know there are updates.
+		src << "<span class='info'>You have unread updates in the changelog.</span>"
 		winset(src, "rpane.changelog", "background-color=#eaeaea;font-style=bold")
+		if(config.aggressive_changelog)
+			src.changes()
+
 
 
 	//////////////
@@ -259,8 +260,9 @@
 	getFiles(
 		'html/search.js',
 		'html/panels.css',
-		'html/painew.png',
-		'html/loading.gif',
+		'html/images/loading.gif',
+		'html/images/ntlogo.png',
+		'html/images/talisman.png',
 		'icons/pda_icons/pda_atmos.png',
 		'icons/pda_icons/pda_back.png',
 		'icons/pda_icons/pda_bell.png',
@@ -298,9 +300,7 @@
 		'icons/spideros_icons/sos_11.png',
 		'icons/spideros_icons/sos_12.png',
 		'icons/spideros_icons/sos_13.png',
-		'icons/spideros_icons/sos_14.png',
-		'html/images/ntlogo.png',
-		'html/images/talisman.png'
+		'icons/spideros_icons/sos_14.png'
 		)
 
 

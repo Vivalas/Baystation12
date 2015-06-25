@@ -12,8 +12,8 @@
 	icon = 'icons/obj/rig_modules.dmi'
 	desc = "A back-mounted hardsuit deployment and control mechanism."
 	slot_flags = SLOT_BACK
-	req_one_access = null
-	req_access = null
+	req_one_access = list()
+	req_access = list()
 	w_class = 4
 
 	// These values are passed on to all component pieces.
@@ -142,19 +142,20 @@
 		piece.icon_state = "[initial(icon_state)]"
 		piece.min_cold_protection_temperature = min_cold_protection_temperature
 		piece.max_heat_protection_temperature = max_heat_protection_temperature
-		piece.siemens_coefficient = siemens_coefficient
+		if(piece.siemens_coefficient > siemens_coefficient) //So that insulated gloves keep their insulation.
+			piece.siemens_coefficient = siemens_coefficient
 		piece.permeability_coefficient = permeability_coefficient
 		piece.unacidable = unacidable
 		if(islist(armor)) piece.armor = armor.Copy()
 
 	update_icon(1)
 
-/obj/item/weapon/rig/Del()
+/obj/item/weapon/rig/Destroy()
 	for(var/obj/item/piece in list(gloves,boots,helmet,chest))
 		var/mob/living/M = piece.loc
 		if(istype(M))
 			M.drop_from_inventory(piece)
-		del(piece)
+		qdel(piece)
 	processing_objects -= src
 	..()
 
@@ -369,7 +370,7 @@
 	if(sealing)
 		fail_msg = "<span class='warning'>The hardsuit is in the process of adjusting seals and cannot be activated.</span>"
 	else if(!fail_msg && ((use_unconcious && user.stat > 1) || (!use_unconcious && user.stat)))
-		fail_msg = "<span class='warning'>You are in no fit state to do that."
+		fail_msg = "<span class='warning'>You are in no fit state to do that.</span>"
 	else if(!cell)
 		fail_msg = "<span class='warning'>There is no cell installed in the suit.</span>"
 	else if(cost && cell.charge < cost * 10) //TODO: Cellrate?
@@ -459,7 +460,7 @@
 
 	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data, force_open)
 	if (!ui)
-		ui = new(user, src, ui_key, ((src.loc != user) ? ai_interface_path : interface_path), interface_title, 480, 550)
+		ui = new(user, src, ui_key, ((src.loc != user) ? ai_interface_path : interface_path), interface_title, 480, 550, data["ai"] ? contained_state : inventory_state)
 		ui.set_initial_data(data)
 		ui.open()
 		ui.set_auto_update(1)
@@ -659,25 +660,25 @@
 			var/obj/item/garbage = H.head
 			H.drop_from_inventory(garbage)
 			H.head = null
-			del(garbage)
+			qdel(garbage)
 
 		if(H.gloves)
 			var/obj/item/garbage = H.gloves
 			H.drop_from_inventory(garbage)
 			H.gloves = null
-			del(garbage)
+			qdel(garbage)
 
 		if(H.shoes)
 			var/obj/item/garbage = H.shoes
 			H.drop_from_inventory(garbage)
 			H.shoes = null
-			del(garbage)
+			qdel(garbage)
 
 		if(H.wear_suit)
 			var/obj/item/garbage = H.wear_suit
 			H.drop_from_inventory(garbage)
 			H.wear_suit = null
-			del(garbage)
+			qdel(garbage)
 
 	for(var/piece in list("helmet","gauntlets","chest","boots"))
 		toggle_piece(piece, H, ONLY_DEPLOY)
@@ -753,7 +754,7 @@
 
 	if(wearer)
 		if(dam_module.damage >= 2)
-			wearer << "<span class='danger'>The [source] has disabled your [dam_module.interface_name]!"
+			wearer << "<span class='danger'>The [source] has disabled your [dam_module.interface_name]!</span>"
 		else
 			wearer << "<span class='warning'>The [source] has damaged your [dam_module.interface_name]!"
 	dam_module.deactivate()
@@ -775,6 +776,14 @@
 	if(!wearer || wearer.back != src)
 		return 0
 	wearer.Move(null,dir)*/
+
+/atom/proc/get_rig()
+	if(loc)
+		return loc.get_rig()
+	return null
+
+/obj/item/weapon/rig/get_rig()
+	return src
 
 #undef ONLY_DEPLOY
 #undef ONLY_RETRACT

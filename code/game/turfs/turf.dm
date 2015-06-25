@@ -22,9 +22,13 @@
 	var/icon_old = null
 	var/pathweight = 1
 
-	//Mining resource generation stuff.
-	var/has_resources
-	var/list/resources
+	// Flick animation
+	var/atom/movable/overlay/c_animation = null
+
+	// holy water
+	var/holy = 0
+
+	var/dynamic_lighting = 1
 
 /turf/New()
 	..()
@@ -32,7 +36,12 @@
 		spawn( 0 )
 			src.Entered(AM)
 			return
+	turfs |= src
 	return
+
+/turf/Destroy()
+	turfs -= src
+	..()
 
 /turf/ex_act(severity)
 	return 0
@@ -56,7 +65,7 @@
 
 /turf/Enter(atom/movable/mover as mob|obj, atom/forget as mob|obj|turf|area)
 	if(movement_disabled && usr.ckey != movement_disabled_exception)
-		usr << "\red Movement is admin-disabled." //This is to identify lag problems
+		usr << "<span class='warning'>Movement is admin-disabled.</span>" //This is to identify lag problems
 		return
 	if (!mover || !isturf(mover.loc))
 		return 1
@@ -99,7 +108,7 @@
 
 /turf/Entered(atom/atom as mob|obj)
 	if(movement_disabled)
-		usr << "\red Movement is admin-disabled." //This is to identify lag problems
+		usr << "<span class='warning'>Movement is admin-disabled.</span>" //This is to identify lag problems
 		return
 	..()
 //vvvvv Infared beam stuff vvvvv
@@ -191,10 +200,10 @@
 /turf/proc/RemoveLattice()
 	var/obj/structure/lattice/L = locate(/obj/structure/lattice, src)
 	if(L)
-		del L
+		qdel(L)
 
 //Creates a new turf
-/turf/proc/ChangeTurf(var/turf/N)
+/turf/proc/ChangeTurf(var/turf/N, var/tell_universe=1, var/force_lighting_update = 0)
 	if (!N)
 		return
 
@@ -203,130 +212,67 @@
 		var/turf/controller = locate(1, 1, src.z)
 		for(var/obj/effect/landmark/zcontroller/c in controller)
 			if(c.down)
-				var/turf/below = locate(src.x, src.y, c.down_target)
-				if((air_master.has_valid_zone(below) || air_master.has_valid_zone(src)) && !istype(below, /turf/space)) // dont make open space into space, its pointless and makes people drop out of the station
-					var/turf/W = src.ChangeTurf(/turf/simulated/floor/open)
-					var/list/temp = list()
-					temp += W
-					c.add(temp,3,1) // report the new open space to the zcontroller
-					return W
+				var/turf/W = src.ChangeTurf(/turf/simulated/floor/open)
+				var/list/temp = list()
+				temp += W
+				c.add(temp,3,1) // report the new open space to the zcontroller
+				return W
 ///// Z-Level Stuff
 
-	var/old_lumcount = lighting_lumcount - initial(lighting_lumcount)
-	var/obj/fire/old_fire = fire
-
-	//world << "Replacing [src.type] with [N]"
-
-	if(connections) connections.erase_all()
-
-	if(istype(src,/turf/simulated))
-		//Yeah, we're just going to rebuild the whole thing.
-		//Despite this being called a bunch during explosions,
-		//the zone will only really do heavy lifting once.
-		var/turf/simulated/S = src
-		if(S.zone) S.zone.rebuild()
+	//var/obj/fire/old_fire = fire
+	var/old_opacity = opacity
+	var/old_dynamic_lighting = dynamic_lighting
+	var/list/old_affecting_lights = affecting_lights
 
 	if(ispath(N, /turf/simulated/floor))
-
 		var/turf/simulated/W = new N( locate(src.x, src.y, src.z) )
-		//W.Assimilate_Air()
-
-		W.lighting_lumcount += old_lumcount
-
-		if(W.lighting_lumcount)
-			W.UpdateAffectingLights()
-
+		/*
 		if(old_fire)
 			fire = old_fire
-
+		*/
 		if (istype(W,/turf/simulated/floor))
 			W.RemoveLattice()
 
-		if(air_master)
-			air_master.mark_for_update(src) //handle the addition of the new turf.
+		if(tell_universe)
+			universe.OnTurfChange(W)
 
 		for(var/turf/space/S in range(W,1))
 			S.update_starlight()
 
 		W.levelupdate()
-		return W
+		. = W
 
 	else
 
 		var/turf/W = new N( locate(src.x, src.y, src.z) )
-		W.lighting_lumcount += old_lumcount
-		if(old_lumcount != W.lighting_lumcount)
-			W.lighting_changed = 1
-			lighting_controller.changed_turfs += W
 
+		/*
 		if(old_fire)
 			old_fire.RemoveFire()
+		*/
 
-		if(air_master)
-			air_master.mark_for_update(src)
+		if(tell_universe)
+			universe.OnTurfChange(W)
 
 		for(var/turf/space/S in range(W,1))
 			S.update_starlight()
 
 		W.levelupdate()
-		return W
+		. =  W
 
-
-//Commented out by SkyMarshal 5/10/13 - If you are patching up space, it should be vacuum.
-//  If you are replacing a wall, you have increased the volume of the room without increasing the amount of gas in it.
-//  As such, this will no longer be used.
-
-//////Assimilate Air//////
-/*
-/turf/simulated/proc/Assimilate_Air()
-	var/aoxy = 0//Holders to assimilate air from nearby turfs
-	var/anitro = 0
-	var/aco = 0
-	var/atox = 0
-	var/atemp = 0
-	var/turf_count = 0
-
-	for(var/direction in cardinal)//Only use cardinals to cut down on lag
-		var/turf/T = get_step(src,direction)
-		if(istype(T,/turf/space))//Counted as no air
-			turf_count++//Considered a valid turf for air calcs
-			continue
-		else if(istype(T,/turf/simulated/floor))
-			var/turf/simulated/S = T
-			if(S.air)//Add the air's contents to the holders
-				aoxy += S.air.oxygen
-				anitro += S.air.nitrogen
-				aco += S.air.carbon_dioxide
-				atox += S.air.toxins
-				atemp += S.air.temperature
-			turf_count ++
-	air.oxygen = (aoxy/max(turf_count,1))//Averages contents of the turfs, ignoring walls and the like
-	air.nitrogen = (anitro/max(turf_count,1))
-	air.carbon_dioxide = (aco/max(turf_count,1))
-	air.toxins = (atox/max(turf_count,1))
-	air.temperature = (atemp/max(turf_count,1))//Trace gases can get bant
-	air.update_values()
-
-	//cael - duplicate the averaged values across adjacent turfs to enforce a seamless atmos change
-	for(var/direction in cardinal)//Only use cardinals to cut down on lag
-		var/turf/T = get_step(src,direction)
-		if(istype(T,/turf/space))//Counted as no air
-			continue
-		else if(istype(T,/turf/simulated/floor))
-			var/turf/simulated/S = T
-			if(S.air)//Add the air's contents to the holders
-				S.air.oxygen = air.oxygen
-				S.air.nitrogen = air.nitrogen
-				S.air.carbon_dioxide = air.carbon_dioxide
-				S.air.toxins = air.toxins
-				S.air.temperature = air.temperature
-				S.air.update_values()
-*/
-
+	affecting_lights = old_affecting_lights
+	if((old_opacity != opacity) || (dynamic_lighting != old_dynamic_lighting) || force_lighting_update)
+		reconsider_lights()
+	if(dynamic_lighting != old_dynamic_lighting)
+		if(dynamic_lighting)
+			lighting_build_overlays()
+		else
+			lighting_clear_overlays()
 
 /turf/proc/ReplaceWithLattice()
-	src.ChangeTurf(/turf/space)
-	new /obj/structure/lattice( locate(src.x, src.y, src.z) )
+	src.ChangeTurf(get_base_turf(src.z))
+	spawn()
+		new /obj/structure/lattice( locate(src.x, src.y, src.z) )
 
 /turf/proc/kill_creatures(mob/U = null)//Will kill people/creatures and damage mechs./N
 //Useful to batch-add creatures to the list.
@@ -364,3 +310,12 @@
 			if(!LinkBlocked(src, t) && !TurfBlockedNonWindow(t))
 				L.Add(t)
 	return L
+
+/turf/proc/process()
+	return PROCESS_KILL
+
+/turf/proc/is_ocean()
+	var/obj/effect/fluid/F = locate() in src
+	if(F && F.depth > 30)
+		return 1
+	return 0

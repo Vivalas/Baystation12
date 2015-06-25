@@ -150,15 +150,15 @@ max volume of phoron storeable by the field = the total volume of a number of ti
 		else
 			user << "\red Access denied."
 		return
-
-	if(istype(W, /obj/item/weapon/card/emag) && !emagged)
+	..()
+	return
+	
+/obj/machinery/power/rust_core/emag_act(var/remaining_charges, var/mob/user)
+	if(!emagged)
 		locked = 0
 		emagged = 1
 		user.visible_message("[user.name] emags the [src.name].","\red You short out the lock.")
-		return
-
-	..()
-	return
+		return 1
 
 /obj/machinery/power/rust_core/attack_ai(mob/user)
 	attack_hand(user)
@@ -268,7 +268,7 @@ max volume of phoron storeable by the field = the total volume of a number of ti
 	//todo: safety checks for field status
 	if(owned_field)
 		icon_state = "core0"
-		del(owned_field)
+		qdel(owned_field)
 		luminosity = 0
 		use_power = 1
 
